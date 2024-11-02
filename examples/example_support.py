@@ -34,11 +34,24 @@ def thermal_and_thick(arg_dict: dict[str, object]):
     ph_edges: np.ndarray = arg_dict['photon_energy_edges']
     params: dict[str, fitting.Parameter] = arg_dict['parameters']
 
+    # Hack the thermal emission to work with
+    # the RHESSI energy range (...)
+    lowe, highe = thermal.CONTINUUM_GRID['energy range keV']
+    ph_mids = ph_edges[:-1] + np.diff(ph_edges)/2
+    kept = (ph_edges >= lowe) & (ph_edges <= highe)
+    kept_mids = (ph_mids >= lowe) & (ph_mids <= highe)
+
     thermal_portion = thermal.thermal_emission(
-        energy_edges=ph_edges << u.keV,
+        energy_edges=ph_edges[kept] << u.keV,
         temperature=params['temperature'].as_quantity(),
         emission_measure=params['emission_measure'].as_quantity()
     ).to_value(u.ph / u.s / u.keV / u.cm**2)
+
+    # Zero-out the data which falls outside the
+    # normal thermal energy grid
+    thermal_fixed = np.zeros(kept.size - 1)
+    thermal_fixed[kept_mids] = thermal_portion
+    thermal_portion = thermal_fixed
 
     # We have to evaluate the thick target model at energy midpoints,
     # so compute them here
