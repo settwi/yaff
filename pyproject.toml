@@ -10,5 +10,8 @@ dependencies = [
     "matplotlib",
     "scipy",
     "emcee",
-    "corner"
+    "corner",
+    "dill",
+    # For pickling locals; uses dill instead of pickle
+    "multiprocess"
 ]

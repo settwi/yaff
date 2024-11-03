@@ -1,13 +1,15 @@
-import copy
 from collections import OrderedDict
-import multiprocessing as mp
+import copy
 import os
-import pickle
 from typing import Callable
 import warnings
 
 import astropy.units as u
+import dill
 import emcee
+# NB: not `multiprocessing`, we're using `multiprocess`
+# which uses `dill` instead of `pickle` to save stuff
+import multiprocess as mp
 import numpy as np
 import scipy.optimize as opt
 import scipy.stats as st
@@ -83,8 +85,24 @@ class DataPacket:
         )
 
     @property
-    def photon_de(self):
-        return np.diff(self.photon_energy_edges)
+    def photon_energy_edges(self):
+        return self._photon_energy_edges
+
+    @photon_energy_edges.setter
+    def photon_energy_edges(self, new):
+        self._photon_energy_edges = new
+        self.photon_de = np.diff(new)
+        self.photon_energy_mids = new[:-1] + self.photon_de/2
+
+    @property
+    def count_energy_edges(self):
+        return self._count_energy_edges
+
+    @count_energy_edges.setter
+    def count_energy_edges(self, new):
+        self._count_energy_edges = new
+        self.count_de = np.diff(new)
+        self.count_energy_mids = new[:-1] + self.count_de/2
 
 
 class Parameter:
@@ -218,7 +236,9 @@ class BayesFitter:
                 kwargs={'free_params': free_param_names, 'frozen_params': self.frozen_params},
                 **emcee_constructor_kw
             )
-            emcee_run_kw['nsteps'] = emcee_run_kw.get('nsteps', 1000)
+
+            emcee_run_kw.setdefault('nsteps', 1000)
+            emcee_run_kw.setdefault('progress', True)
             self.emcee_sampler.run_mcmc(
                 initial_state,
                 **emcee_run_kw
@@ -276,7 +296,7 @@ class BayesFitter:
 
     def save(self, output_path: str, open_func=open) -> None:
         with open_func(output_path, 'wb') as f:
-            pickle.dump(self, f)
+            dill.dump(self, f)
 
 
 def normal_minimize(fit_obj: BayesFitter, **minimize_kw) -> BayesFitter:
