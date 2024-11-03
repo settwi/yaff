@@ -34,6 +34,8 @@ class DataPacket:
         self,
         counts: u.ct,
         counts_error: u.ct,
+        background_counts: u.ct,
+        background_counts_error: u.ct,
         effective_exposure: u.s,
         count_energy_edges: u.keV,
         photon_energy_edges: u.keV,
@@ -45,11 +47,17 @@ class DataPacket:
            Performs some basic checks to assert that things
            are the correct shape before allowing the caller
            to proceed.'''
-        self.counts: np.array = counts.to_value(u.ct)
-        self.counts_error: np.array = counts_error.to_value(u.ct)
+        self.counts: np.ndarray = counts.to_value(u.ct)
+        self.counts_error: np.ndarray = counts_error.to_value(u.ct)
+
+        self.background_counts: np.ndarray = background_counts.to_value(u.ct)
+        self.background_counts_error: np.ndarray = background_counts_error.to_value(u.ct)
+
         self.effective_exposure: np.ndarray = np.array(effective_exposure.to_value(u.s))
+
         self.count_energy_edges: np.ndarray = count_energy_edges.to_value(u.keV)
         self.photon_energy_edges: np.ndarray = photon_energy_edges.to_value(u.keV)
+
         self.response_matrix = response_matrix.to_value(u.cm**2 * u.ct / u.ph)
         self._verify_dimensions()
 
@@ -58,9 +66,12 @@ class DataPacket:
         verify(
             self.counts.ndim == 1, "Counts should be 1D.")
         verify(
-            self.counts.shape == self.counts_error.shape,
+            self.counts.shape == self.counts_error.shape ==
+            self.background_counts.shape ==
+            self.background_counts_error.shape,
             "Counts and errors must be the same length.")
         verify(
+            self.count_energy_edges.ndim == 1 and
             self.counts.size == self.count_energy_edges.size - 1,
             "Count energy edges must be 1D and have one element more than"
             "the counts array.")
@@ -157,7 +168,7 @@ class BayesFitter:
            and the log likelihood.
            So, find that sum.
 
-           The `*args` is the "parameter vector" we expect from the
+           `pvec` is the "parameter vector" we expect from the
            emcee EnsembleSampler.
            The `**kwargs` contain info on which params are varying.
 
