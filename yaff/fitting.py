@@ -273,8 +273,12 @@ class BayesFitter:
             self.parameters[n].value = best_val
 
     @property
-    def num_free_params(self) -> int:
-        return sum((not p.frozen) for p in self.parameters.values())
+    def free_params(self) -> dict[str, Parameter]:
+        return {
+            k: copy.deepcopy(v)
+            for (k, v) in self.parameters.items()
+            if not v.frozen
+        }
 
     @property
     def free_param_vector(self) -> np.ndarray:
@@ -291,18 +295,15 @@ class BayesFitter:
         )
 
     @property
+    def num_free_params(self) -> int:
+        return sum((not p.frozen) for p in self.parameters.values())
+
+    @property
     def frozen_params(self) -> dict[str, Parameter]:
         return {
             k: copy.deepcopy(v)
             for (k, v) in self.parameters.items()
             if v.frozen
-        }
-    
-    def free_params(self) -> dict[str, Parameter]:
-        return {
-            k: copy.deepcopy(v)
-            for (k, v) in self.parameters.items()
-            if not v.frozen
         }
 
     def save(self, output_path: str, open_func=open) -> None:
