@@ -12,10 +12,23 @@ def adapt_rhessi_data(rl: rhessi.RhessiLoader) -> fitting.DataPacket:
     cts = rl._loaded_spec_data['counts'] << u.ct # (rl._spectrum['counts'] / rl._spectrum['livetime'])
     err = rl._loaded_spec_data['count_error'] << u.ct # (rl._spectrum['counts_err'] / rl._spectrum['livetime'])
 
+    bkg_cts = (
+        rl['extras']['background_rate'] *
+        rl['count_channel_binning'] *
+        rl['effective_exposure']
+    )
+    bkg_err = (
+        rl['extras']['background_rate_error'] *
+        rl['count_channel_binning'] *
+        rl['effective_exposure']
+    )
+
     effective_exposure = rl._loaded_spec_data['effective_exposure'] << u.s
     return fitting.DataPacket(
-        counts=cts,
-        counts_error=err,
+        counts=cts << u.ct,
+        counts_error=err << u.ct,
+        background_counts=bkg_cts << u.ct,
+        background_counts_error=bkg_err << u.ct,
         effective_exposure=effective_exposure << u.s,
         count_energy_edges=count_ebins << u.keV,
         photon_energy_edges=photon_ebins << u.keV,
