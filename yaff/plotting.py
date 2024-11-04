@@ -44,7 +44,7 @@ def plot_data_model(
     # Plot the background
     stairs_with_error(
         bins=energy_edges << u.keV,
-        rate=bkg << u.ct,
+        quant=bkg << u.ct,
         error=bkg_err << u.ct,
         ax=data_ax,
         label='bkg',
@@ -136,7 +136,7 @@ def corner_plot(fitter: BayesFitter, burnin: int, fig: Figure=None):
 
 def stairs_with_error(
         bins: u.Quantity | astropy.time.Time,
-        rate: u.Quantity,
+        quant: u.Quantity,
         error: u.Quantity=None,
         ax=None,
         label: str=None,
@@ -152,7 +152,7 @@ def stairs_with_error(
     ax = ax or plt.gca()
     try:
         ve = ValueError("Rate unit is not the same as the error unit.")
-        if error is not None and rate.unit != error.unit:
+        if error is not None and quant.unit != error.unit:
             raise ve
     except AttributeError:
         raise ve
@@ -163,21 +163,21 @@ def stairs_with_error(
         edges = bins.datetime
         bin_unit = ''
 
-    rate, rate_unit = rate.value, rate.unit
+    quant, quant_unit = quant.value, quant.unit
     bins = np.unique(edges).flatten()
 
-    st = ax.stairs(rate, bins, label=label, **(line_kw or dict()))
+    st = ax.stairs(quant, bins, label=label, **(line_kw or dict()))
 
-    ax.set(xlabel=bin_unit, ylabel=rate_unit)
+    ax.set(xlabel=bin_unit, ylabel=quant_unit)
     if error is not None:
         col = list(st.get_edgecolor())
         col[-1] = 0.3
 
         e = error.value
         plot_error = np.concatenate((e, [e[-1]]))
-        plot_rate = np.concatenate((rate, [rate[-1]]))
-        minus = plot_rate - plot_error
-        plus = plot_rate + plot_error
+        plot_quant = np.concatenate((quant, [quant[-1]]))
+        minus = plot_quant - plot_error
+        plus = plot_quant + plot_error
         stacked = np.array((minus, plus))
         minus = stacked.min(axis=0)
         plus = stacked.max(axis=0)
