@@ -101,7 +101,7 @@ def plot_parameter_chains(fitter: BayesFitter, fig: Figure=None):
         raise ValueError("Emcee needs to be run first")
 
     fig = fig or plt.figure(figsize=(8, 6))
-    param_names = list(fitter.parameters.keys())
+    param_names = fitter.free_param_names
     param_units = list(v.unit for v in fitter.parameters.values())
 
     chains = fitter.emcee_sampler.chain
