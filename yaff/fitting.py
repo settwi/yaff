@@ -131,33 +131,17 @@ class Parameter:
         return self.value << self.unit
 
 
-class Minimizable(abc.ABC):
-    '''A class which can get minimized---it has a log_posterior method'''
-    def log_posterior(self, pvec, **kwargs) -> float:
-        '''In the Bayes context, the log posterior
-           is proportional to the sum of the log priors
-           and the log likelihood.
-           So, find that sum.
-
-           `pvec` is the "parameter vector" we expect from the
-           emcee EnsembleSampler.
-           The `**kwargs` contain info on which params are varying.
-
-            We also need to be careful not to use the "self.parameters"
-            directly to allow the walkers to vary independently
-            in each process.
-        '''
-        raise NotImplementedError
-
-
-class FitsEmcee(Minimizable):
+class FitsEmcee(abc.ABC):
     '''Mixin indicating that a class
        handles some aspects of the fitting process.
        
        Not to state the obvious, but:
-       any property that raises NotImplementedError
+       any method/property that raises NotImplementedError
        needs to... get implemented.
     '''
+    def log_posterior(self, pvec, **kwargs) -> float:
+        raise NotImplementedError
+
     @property
     def free_param_vector(self):
         raise NotImplementedError
@@ -172,6 +156,10 @@ class FitsEmcee(Minimizable):
 
     @property
     def frozen_parameters(self):
+        raise NotImplementedError
+
+    @property
+    def flat_named_free_parameters(self) -> tuple[list[str], list[Parameter]]:
         raise NotImplementedError
 
     def run_emcee(self, emcee_constructor_kw: dict, emcee_run_kw: dict) -> None:
@@ -226,7 +214,6 @@ class FitsEmcee(Minimizable):
            parameters.
         '''
         raise NotImplementedError
-
 
 
 class BayesFitter(FitsEmcee):
@@ -364,7 +351,7 @@ class BayesFitter(FitsEmcee):
 
 class CompositeBayesFitter(FitsEmcee):
     '''
-    A CompositeBayesFitter accepts:
+    A `CompositeBayesFitter` accepts:
         - a list of individual `BayesFitter`s, with the data already loaded, and
         - a set of parameter names shared between the individual fitters.
 
@@ -414,7 +401,7 @@ class CompositeBayesFitter(FitsEmcee):
                     collected.append(fitter.parameters.pop(n))
                 except KeyError:
                     raise ValueError(
-                        f"Parameter {n} not present in fitter {i} parameter set, "
+                        f"Parameter '{n}' not present in fitter {i} parameter set, "
                         "so it cannot be shared between fitters."
                     )
             
@@ -545,6 +532,14 @@ class CompositeBayesFitter(FitsEmcee):
         for f in self.fitters:
             ret += list(p for p in f.parameters if not p.frozen)
         return ret
+
+    @property
+    def flat_named_free_parameters(self) -> tuple[list[str], list[Parameter]]:
+        '''Couple flattened names with flattened parameters'''
+        return (
+            list(self.free_param_names),
+            list(self.flat_free_parameters)
+        )
             
 
 def normal_minimize(fit_obj: FitsEmcee, **minimize_kw) -> list[str, float]:

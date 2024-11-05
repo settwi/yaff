@@ -13,5 +13,6 @@ dependencies = [
     "corner",
     "dill",
     # For pickling locals; uses dill instead of pickle
-    "multiprocess"
+    "multiprocess",
+    "ruff>=0.7.2",
 ]

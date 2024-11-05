@@ -4,17 +4,31 @@ import corner
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import numpy as np
-from yaff.fitting import BayesFitter
+from typing import Iterable
+from yaff.fitting import BayesFitter, FitsEmcee, Parameter, DataPacket
 
 def plot_data_model(
+    data: DataPacket,
     fit: BayesFitter,
+    parameter_names: Iterable[str],
+    parameter_units: Iterable[u.Unit],
+    parameter_chains: np.ndarray,
     num_model_samples: int=200,
     fig: Figure=None,
 ):
-    '''Given a BayesFitter, plot the data, and on top of the data,
+    '''Given data and a way to evaluate a model,
+       plot the data, and on top of the data,
        plot a few model samples.
 
        Also visualizes the residual for each model sample.
+
+       `parameter_names` should be the named parameters expected
+       by the model implemented in the `FitsEmcee` object.
+       Axis 0 is the parameter axis; axis 1 is the iteration axis.
+
+       `parameter_chains` are the `emcee.flatchain` outputs
+       from `emcee.EnsembleSampler`, or some other kind of
+       flat Monte Carlo chain.
     '''
     fig = fig or plt.figure()
 
@@ -25,11 +39,11 @@ def plot_data_model(
         gridspec_kw=gskw
     )
 
-    energy_edges = fit.data.count_energy_edges
-    data = fit.data.counts
-    err = fit.data.counts_error
-    bkg = fit.data.background_counts
-    bkg_err = fit.data.background_counts_error
+    energy_edges = data.count_energy_edges
+    data = data.counts
+    err = data.counts_error
+    bkg = data.background_counts
+    bkg_err = data.background_counts_error
 
     # Plot the data
     stairs_with_error(
@@ -52,23 +66,23 @@ def plot_data_model(
     )
 
     # Default: just plot one line
-    some_params = [[p.value for p in fit.parameters.values()]]
+    some_params = parameter_chains[:, 0]
     alpha = 1
     # Sample the models and then plot them
     if fit.emcee_sampler is not None:
         rng = np.random.default_rng()
         some_params = rng.choice(
-            fit.emcee_sampler.flatchain,
+            parameter_chains,
             size=num_model_samples
         )
         alpha = 0.05
 
-    param_names = list(fit.parameters.keys())
     for pset in some_params:
-        for k, v in zip(param_names, pset):
-            fit.parameters[k].value = v
-
-        count_model = fit.eval_model()
+        params = {
+            k: Parameter(v << unit_, False)
+            for (k, v, unit_) in zip(parameter_names, pset, parameter_units)
+        }
+        count_model = fit.eval_model(params)
         data_ax.stairs(count_model, energy_edges, color='black', alpha=alpha)
 
         residual = (data - count_model - bkg) / np.sqrt(err**2 + bkg_err**2)
@@ -94,22 +108,21 @@ def plot_data_model(
     return {'fig': fig, 'data_ax': data_ax, 'error_ax': err_ax}
 
 
-def plot_parameter_chains(fitter: BayesFitter, fig: Figure=None):
-    '''Given a BayesFitter, plot the parameter MCMC chains.
+def plot_parameter_chains(fitter: FitsEmcee, names: list[str], params: list[Parameter], fig: Figure=None):
+    '''Given a FitsEmcee-like object, plot the parameter MCMC chains.
        You may optionally provide a figure to plot on.'''
     if fitter.emcee_sampler is None:
         raise ValueError("Emcee needs to be run first")
 
     fig = fig or plt.figure(figsize=(8, 6))
-    param_names = fitter.free_param_names
-    param_units = list(v.unit for v in fitter.parameters.values())
+    param_units = list(p.unit for p in params)
 
     chains = fitter.emcee_sampler.chain
     axes = []
-    num_rows = len(param_names)
+    num_rows = len(names)
     for i in range(num_rows):
         axes.append(ax := fig.add_subplot(num_rows, 1, i + 1))
-        name = param_names[i]
+        name = names[i]
         unit = param_units[i]
         ax.plot(chains[..., i].T, color='black', alpha=0.3)
         ax.set(title=name, ylabel=unit)
@@ -117,10 +130,10 @@ def plot_parameter_chains(fitter: BayesFitter, fig: Figure=None):
     return {'fig': fig, 'axes': axes}
 
 
-def corner_plot(fitter: BayesFitter, burnin: int, fig: Figure=None):
-    '''Take a BayesFitter and plot some parameter corner plots.'''
+def corner_plot(fitter: FitsEmcee, burnin: int, fig: Figure=None):
+    '''Take a FitsEmcee-like object and plot some parameter corner plots.'''
     corner_chain = fitter.emcee_sampler.flatchain[burnin:]
-    param_names = list(fitter.parameters.keys())
+    param_names = fitter.free_param_names
 
     fig = fig or plt.figure(figsize=(20, 20), layout='tight')
     corner.corner(
