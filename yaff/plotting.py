@@ -4,46 +4,40 @@ import corner
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import numpy as np
+import numpy.typing
 from typing import Iterable
-from yaff.fitting import BayesFitter, FitsEmcee, Parameter, DataPacket
+from yaff.fitting import BayesFitter, FitsEmceeMixin, Parameter, DataPacket
+
 
 def plot_data_model(
-    data: DataPacket,
     fit: BayesFitter,
-    parameter_names: Iterable[str],
-    parameter_units: Iterable[u.Unit],
-    parameter_chains: np.ndarray,
-    num_model_samples: int=200,
-    fig: Figure=None,
+    model_samples: numpy.typing.ArrayLike,
+    fig: Figure = None,
 ):
-    '''Given data and a way to evaluate a model,
-       plot the data, and on top of the data,
-       plot a few model samples.
+    """Given data and a way to evaluate a model,
+    plot the data, and on top of the data,
+    plot a few model samples.
 
-       Also visualizes the residual for each model sample.
+    Also visualizes the residual for each model sample.
 
-       `parameter_names` should be the named parameters expected
-       by the model implemented in the `FitsEmcee` object.
-       Axis 0 is the parameter axis; axis 1 is the iteration axis.
+    `parameter_names` should be the named parameters expected
+    by the model implemented in the `BayesFitter` object.
+    Axis 0 is the parameter axis; axis 1 is the iteration axis.
 
-       `parameter_chains` are the `emcee.flatchain` outputs
-       from `emcee.EnsembleSampler`, or some other kind of
-       flat Monte Carlo chain.
-    '''
+    `parameter_chains` are the `emcee.flatchain` outputs
+    from `emcee.EnsembleSampler`, or some other kind of
+    flat Monte Carlo chain.
+    """
     fig = fig or plt.figure()
 
-    gskw = {'height_ratios': (4, 1), 'hspace': 0.05}
-    data_ax, err_ax = fig.subplots(
-        ncols=1, nrows=2,
-        sharex=True,
-        gridspec_kw=gskw
-    )
+    gskw = {"height_ratios": (4, 1), "hspace": 0.05}
+    data_ax, err_ax = fig.subplots(ncols=1, nrows=2, sharex=True, gridspec_kw=gskw)
 
-    energy_edges = data.count_energy_edges
-    data = data.counts
-    err = data.counts_error
-    bkg = data.background_counts
-    bkg_err = data.background_counts_error
+    energy_edges = fit.data.count_energy_edges
+    data = fit.data.counts
+    err = fit.data.counts_error
+    bkg = fit.data.background_counts
+    bkg_err = fit.data.background_counts_error
 
     # Plot the data
     stairs_with_error(
@@ -51,8 +45,8 @@ def plot_data_model(
         (data - bkg) << u.ct,
         np.sqrt(err**2 + bkg_err**2) << u.ct,
         data_ax,
-        label='data - bkg',
-        line_kw={'color': 'blue'}
+        label="data - bkg",
+        line_kw={"color": "blue"},
     )
 
     # Plot the background
@@ -61,56 +55,37 @@ def plot_data_model(
         quant=bkg << u.ct,
         error=bkg_err << u.ct,
         ax=data_ax,
-        label='bkg',
-        line_kw={'color': 'orange'}
+        label="bkg",
+        line_kw={"color": "orange"},
     )
 
-    # Default: just plot one line
-    some_params = parameter_chains[:, 0]
-    alpha = 1
-    # Sample the models and then plot them
-    if fit.emcee_sampler is not None:
-        rng = np.random.default_rng()
-        some_params = rng.choice(
-            parameter_chains,
-            size=num_model_samples
-        )
-        alpha = 0.05
-
-    for pset in some_params:
-        params = {
-            k: Parameter(v << unit_, False)
-            for (k, v, unit_) in zip(parameter_names, pset, parameter_units)
-        }
-        count_model = fit.eval_model(params)
-        data_ax.stairs(count_model, energy_edges, color='black', alpha=alpha)
+    alpha = min(1, 2 / len(model_samples))
+    for count_model in model_samples:
+        data_ax.stairs(count_model, energy_edges, color="black", alpha=alpha)
 
         residual = (data - count_model - bkg) / np.sqrt(err**2 + bkg_err**2)
-        err_ax.stairs(residual, energy_edges, color='black', alpha=alpha)
+        err_ax.stairs(residual, energy_edges, color="black", alpha=alpha)
 
-    err_ax.axhline(color='magenta', zorder=-1, alpha=0.2)
+    err_ax.axhline(color="magenta", zorder=-1, alpha=0.2)
     data_ax.legend()
 
     data_ax.set(
-        title='Model vs Data',
-        ylabel='Counts',
-        xscale='log',
-        yscale='log',
-        xlabel=None
+        title="Model vs Data", ylabel="Counts", xscale="log", yscale="log", xlabel=None
     )
 
-    err_ax.set(
-        xlabel='Energy (keV)',
-        ylabel='$(D - M) / \\sigma_D$',
-        ylim=(-5, 5)
-    )
+    err_ax.set(xlabel="Energy (keV)", ylabel="$(D - M) / \\sigma_D$", ylim=(-5, 5))
 
-    return {'fig': fig, 'data_ax': data_ax, 'error_ax': err_ax}
+    return {"fig": fig, "data_ax": data_ax, "error_ax": err_ax}
 
 
-def plot_parameter_chains(fitter: FitsEmcee, names: list[str], params: list[Parameter], fig: Figure=None):
-    '''Given a FitsEmcee-like object, plot the parameter MCMC chains.
-       You may optionally provide a figure to plot on.'''
+def plot_parameter_chains(
+    fitter: FitsEmceeMixin,
+    names: list[str],
+    params: list[Parameter],
+    fig: Figure = None,
+):
+    """Given a FitsEmcee-like object, plot the parameter MCMC chains.
+    You may optionally provide a figure to plot on."""
     if fitter.emcee_sampler is None:
         raise ValueError("Emcee needs to be run first")
 
@@ -124,18 +99,18 @@ def plot_parameter_chains(fitter: FitsEmcee, names: list[str], params: list[Para
         axes.append(ax := fig.add_subplot(num_rows, 1, i + 1))
         name = names[i]
         unit = param_units[i]
-        ax.plot(chains[..., i].T, color='black', alpha=0.3)
+        ax.plot(chains[..., i].T, color="black", alpha=0.3)
         ax.set(title=name, ylabel=unit)
 
-    return {'fig': fig, 'axes': axes}
+    return {"fig": fig, "axes": axes}
 
 
-def corner_plot(fitter: FitsEmcee, burnin: int, fig: Figure=None):
-    '''Take a FitsEmcee-like object and plot some parameter corner plots.'''
+def corner_plot(fitter: FitsEmceeMixin, burnin: int, fig: Figure = None):
+    """Take a FitsEmcee-like object and plot some parameter corner plots."""
     corner_chain = fitter.emcee_sampler.flatchain[burnin:]
     param_names = fitter.free_param_names
 
-    fig = fig or plt.figure(figsize=(20, 20), layout='tight')
+    fig = fig or plt.figure(figsize=(20, 20), layout="tight")
     corner.corner(
         corner_chain,
         fig=fig,
@@ -148,20 +123,20 @@ def corner_plot(fitter: FitsEmcee, burnin: int, fig: Figure=None):
 
 
 def stairs_with_error(
-        bins: u.Quantity | astropy.time.Time,
-        quant: u.Quantity,
-        error: u.Quantity=None,
-        ax=None,
-        label: str=None,
-        line_kw: dict=None,
-        err_kw: dict=None
+    bins: u.Quantity | astropy.time.Time,
+    quant: u.Quantity,
+    error: u.Quantity = None,
+    ax=None,
+    label: str = None,
+    line_kw: dict = None,
+    err_kw: dict = None,
 ):
-    '''
+    """
     Plot some data (stairs) with nice shaded error bars around the data.
 
     Styles may be adjusted with the `line_kw` and `err_kw` arguments,
     which get passed to `stairs` and `fill_between`, respectively.
-    '''
+    """
     ax = ax or plt.gca()
     try:
         ve = ValueError("Rate unit is not the same as the error unit.")
@@ -174,7 +149,7 @@ def stairs_with_error(
         edges, bin_unit = bins.value, bins.unit
     except AttributeError:
         edges = bins.datetime
-        bin_unit = ''
+        bin_unit = ""
 
     quant, quant_unit = quant.value, quant.unit
     bins = np.unique(edges).flatten()
@@ -199,8 +174,8 @@ def stairs_with_error(
             y1=minus,
             y2=plus,
             facecolor=col,
-            edgecolor='None',
-            step='post',
-            **(err_kw or dict())
+            edgecolor="None",
+            step="post",
+            **(err_kw or dict()),
         )
     return ax
