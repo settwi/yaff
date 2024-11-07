@@ -11,24 +11,36 @@ which incorporates
 
 ## Table of contents
 - [Installation](#installation)
+- [List of examples](#examples)
 - [Spectroscopy fundamentals](#x-ray-spectroscopy-basics)
 - [Package overview](#package-overview)
 
 ## Installation
 `yaff` can be installed from GitHub.
+It's recommended to use `uv` to manage your Python versions and virtual environments: [uv project GitHub page, with installation instructions](https://github.com/astral-sh/uv).
+It is very fast and works well.
+
 Clone the repository and run
 ```bash
 cd /path/to/where/you/cloned/yaff
-pip install -e .
-```
-The package will install its dependencies and itself.
+# Optionally--but preferably--make a venv to work in
+# here is an example of how to do that using the `uv` tool
+uv venv
+source .venv/bin/activate
 
-You also need to manually install `sunkit-spex` to run
-the examples as the release version is rather outdated.
-```bash
-pip install git+https://github.com/sunpy/sunkit-spex.git
-# Or, clone the repo and do a `pip install -e .`
+uv pip install -e .
+# or omit the `uv` if you are just using pip
+
+# If you want to install the packages required by the examples as well:
+uv pip install -e .[examples]
 ```
+
+## Examples
+All of these can be found in `examples` directory. (TODO: make them a gallery)
+- `line_fit`: Fit some synthetic counts data to a line.
+- `rhessi_fit`: Fit a (thermal + cold thick target) model to a RHESSI spectrum near the peak of an M9 GOES class flare.
+- `stix_fit`: Fit a (thermal + cold thick target) model to a STIX spectrum during part of the impulsive phase of an M1 GOES class flare.
+- `simulataneous_nustar_fit`: Fit a thermal bremsstrahlung model to both NuSTAR focal plane modules (FPMA and FPMB) simultaneously to a quiet sun brightening.
 
 ## X-ray spectroscopy basics
 ### Spectroscopy: background
