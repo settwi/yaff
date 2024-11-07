@@ -14,11 +14,24 @@ dependencies = [
     "dill",
     # For pickling locals; uses dill instead of pickle
     "multiprocess",
-    "ruff>=0.7.2",
+    "ruff",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
 examples = [
-    'asdf',
-    'asdf-astropy'
+    "asdf",
+    "asdf-astropy",
+    "ipywidgets",
+    "ipykernel",
+    "ipynb",
+    "jupyter",
+    "pyqt6",
+    "pyqt5",
+    "pyside2",
+    "pip",
+    
+    # Required for model functions and data loading
+    "sunkit_spex @ git+https://github.com/sunpy/sunkit-spex.git",
+    "sunpy[all]",
 ]
