@@ -11,7 +11,7 @@ from yaff.fitting import BayesFitter, FitsEmceeMixin, Parameter, DataPacket
 
 def plot_data_model(
     fit: BayesFitter,
-    model_samples: numpy.typing.ArrayLike | None=None,
+    model_samples: numpy.typing.ArrayLike | None = None,
     fig: Figure = None,
 ):
     """Given a BayesFitter,

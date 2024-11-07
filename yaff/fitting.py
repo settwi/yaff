@@ -305,11 +305,11 @@ class BayesFitter(FitsEmceeMixin):
         return ret
 
     def generate_model_samples(self, num: int) -> np.ndarray:
-        '''Generate model samples from the parameter chains in
-           the associated `emcee.EnsembleSampler`.
-           If no sampler is present, current parameters
-           are used.
-        '''
+        """Generate model samples from the parameter chains in
+        the associated `emcee.EnsembleSampler`.
+        If no sampler is present, current parameters
+        are used.
+        """
         if self.emcee_sampler is None:
             warnings.warn(
                 "You haven't run the emcee sampler yet, "
@@ -458,11 +458,11 @@ class CompositeBayesFitter(FitsEmceeMixin):
             p.value = v
 
     def generate_model_samples(self, num: int) -> np.ndarray:
-        '''Generate model samples from the parameter chains in
-           the associated `emcee.EnsembleSampler`.
-           If no sampler is present, current parameters
-           are used.
-        '''
+        """Generate model samples from the parameter chains in
+        the associated `emcee.EnsembleSampler`.
+        If no sampler is present, current parameters
+        are used.
+        """
         # TODO
         return NotImplemented
 
