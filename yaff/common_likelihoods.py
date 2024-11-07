@@ -52,4 +52,19 @@ def poisson_factory(
 def chi_squared_factory(
     restriction: np.ndarray[bool],
 ) -> Callable[[ArrayLike, ArrayLike], float]:
-    pass
+    """Construct a chi2 likelihood that is weighted by
+    errors on the background counts and counts.
+
+    The `restriction` array may be used to restrict the energy
+    range which is considered when fitting.
+    """
+
+    def chi2_likelihood(data: fitting.DataPacket, model: np.ndarray):
+        total_sq_err = data.counts_error**2 + data.background_counts_error**2
+        numerator = (data.counts - data.background_counts - model) ** 2
+
+        # Some count bins might be negative, or have zero error,
+        # so use nan_to_num
+        return -np.nan_to_num((numerator / total_sq_err)[restriction]).sum()
+
+    return chi2_likelihood
