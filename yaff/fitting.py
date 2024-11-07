@@ -92,9 +92,9 @@ class DataPacket:
 
         if self.response_matrix.shape[0] == self.response_matrix.shape[1]:
             warnings.warn(
-                "Your response matrix is square. "
-                "Make sure it is oriented properly, (SRM @ P). "
-                "Can't tell from photon vs count edge shapes"
+                "\nYour response matrix is square."
+                "\nMake sure it is oriented properly, C = (SRM @ P)."
+                "\nCan't tell from photon vs count edge shapes"
             )
 
     @property
@@ -304,6 +304,29 @@ class BayesFitter(FitsEmceeMixin):
             ret += prior(self.parameters[k].value)
         return ret
 
+    def generate_model_samples(self, num: int) -> np.ndarray:
+        '''Generate model samples from the parameter chains in
+           the associated `emcee.EnsembleSampler`.
+           If no sampler is present, current parameters
+           are used.
+        '''
+        if self.emcee_sampler is None:
+            warnings.warn(
+                "You haven't run the emcee sampler yet, "
+                "so we can only generate one model sample."
+            )
+            return [self.eval_model()]
+
+        param_samples = np.random.default_rng().choice(
+            self.emcee_sampler.flatchain, size=num
+        )
+
+        ret = list()
+        for param_set in param_samples:
+            self.emplace_free_parameters(param_set)
+            ret.append(self.eval_model())
+        return np.array(ret)
+
     @property
     def free_parameters(self) -> dict[str, Parameter]:
         return {
@@ -434,6 +457,15 @@ class CompositeBayesFitter(FitsEmceeMixin):
         for p, v in zip(self.free_parameters, vals):
             p.value = v
 
+    def generate_model_samples(self, num: int) -> np.ndarray:
+        '''Generate model samples from the parameter chains in
+           the associated `emcee.EnsembleSampler`.
+           If no sampler is present, current parameters
+           are used.
+        '''
+        # TODO
+        return NotImplemented
+
     @property
     def free_param_vector(self) -> list[float]:
         """The free parameter values are ordered as follows (assumes N fitters):
@@ -508,7 +540,7 @@ class CompositeBayesFitter(FitsEmceeMixin):
 
 def levenberg_minimize(fitter: BayesFitter, **scipy_kwargs) -> BayesFitter:
     """Given a Bayes fitter, minimize its parameters using the Levenberg-Marquadt
-    least squares minimization like XSPEC does.
+    (weighted) least squares minimization like XSPEC does.
 
     This minimization technique operates on **all** of the model and data
     count bins. So, it tends to be more robust (and converge faster) than
@@ -525,14 +557,24 @@ def levenberg_minimize(fitter: BayesFitter, **scipy_kwargs) -> BayesFitter:
             return np.full(fitter.data.counts.shape, np.inf)
 
         mod = fitter.eval_model()
-        return mod - fitter.data.counts
+        compare = fitter.data.counts - fitter.data.background_counts
+
+        # weight each residual by the error in each bin:
+        # larger error = less impact on the fit
+        total_error = np.sqrt(
+            fitter.data.counts_error**2 + fitter.data.background_counts_error**2
+        )
+
+        ret = (mod - compare) / total_error
+        # Any "zero-error" bins need to get deleted
+        return np.nan_to_num(ret, copy=False, nan=0, posinf=0, neginf=0)
 
     scipy_kwargs["method"] = "lm"
     guess = fitter.free_param_vector
     res = opt.least_squares(fun=residual_function, x0=guess, **scipy_kwargs)
 
     if not res.success:
-        print("minimization failed; whatever")
+        warnings.warn("minimization failed; whatever")
 
     fitter.emplace_free_parameters(res.x)
     return fitter
