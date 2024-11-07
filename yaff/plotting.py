@@ -11,24 +11,24 @@ from yaff.fitting import BayesFitter, FitsEmceeMixin, Parameter, DataPacket
 
 def plot_data_model(
     fit: BayesFitter,
-    model_samples: numpy.typing.ArrayLike,
+    model_samples: numpy.typing.ArrayLike | None=None,
     fig: Figure = None,
 ):
-    """Given data and a way to evaluate a model,
+    """Given a BayesFitter,
     plot the data, and on top of the data,
     plot a few model samples.
 
+    `model_samples` should be an `ArrayLike` of models
+    evaluated at various parameters.
+
+    If no `model_samples` are provided, the fitter is evaluated
+    at its current parameter set for plotting.
+
     Also visualizes the residual for each model sample.
-
-    `parameter_names` should be the named parameters expected
-    by the model implemented in the `BayesFitter` object.
-    Axis 0 is the parameter axis; axis 1 is the iteration axis.
-
-    `parameter_chains` are the `emcee.flatchain` outputs
-    from `emcee.EnsembleSampler`, or some other kind of
-    flat Monte Carlo chain.
     """
     fig = fig or plt.figure()
+    if model_samples is None:
+        model_samples = [fit.eval_model()]
 
     gskw = {"height_ratios": (4, 1), "hspace": 0.05}
     data_ax, err_ax = fig.subplots(ncols=1, nrows=2, sharex=True, gridspec_kw=gskw)
