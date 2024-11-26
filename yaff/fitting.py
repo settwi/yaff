@@ -538,17 +538,29 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return list(p.unit for p in self.free_parameters)
 
 
-def levenberg_minimize(fitter: BayesFitter, **scipy_kwargs) -> BayesFitter:
+def levenberg_minimize(
+    fitter: BayesFitter,
+    restriction: np.ndarray[bool] = None,
+    **scipy_kwargs
+) -> BayesFitter:
     """Given a Bayes fitter, minimize its parameters using the Levenberg-Marquadt
     (weighted) least squares minimization like XSPEC does.
 
-    This minimization technique operates on **all** of the model and data
+    The `restriction` parameter is used to optionally exclude count bins
+    which shouldn't be considered when fitting.
+
+    ---
+
+    Levenberg-Marquadt operates on **all** of the model and data
     count bins. So, it tends to be more robust (and converge faster) than
     algorithms which are based on a single summary "fit statistic."
 
     Applying this minimizer is a good first step before doing MCMC
     as it will (robustly) put the parameter vector near its global minimum.
     """
+
+    if restriction is None:
+        restriction = np.ones_like(fitter.data.counts, dtype=bool)
 
     def residual_function(vector: ArrayLike):
         fitter.emplace_free_parameters(vector)
@@ -566,6 +578,7 @@ def levenberg_minimize(fitter: BayesFitter, **scipy_kwargs) -> BayesFitter:
         )
 
         ret = (mod - compare) / total_error
+        ret[~restriction] = 0
         # Any "zero-error" bins need to get deleted
         return np.nan_to_num(ret, copy=False, nan=0, posinf=0, neginf=0)
 
