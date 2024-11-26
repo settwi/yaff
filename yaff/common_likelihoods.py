@@ -65,6 +65,11 @@ def chi_squared_factory(
 
         # Some count bins might be negative, or have zero error,
         # so use nan_to_num
-        return -np.nan_to_num((numerator / total_sq_err)[restriction]).sum()
+        return -np.nan_to_num(
+            (numerator / total_sq_err)[restriction],
+            nan=0,
+            neginf=0,
+            posinf=0
+        ).sum()
 
     return chi2_likelihood
