@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import numpy as np
 import numpy.typing
-from typing import Iterable
-from yaff.fitting import BayesFitter, FitsEmceeMixin, Parameter, DataPacket
+from yaff.fitting import BayesFitter, FitsEmceeMixin, Parameter
 
 
 def plot_data_model(
