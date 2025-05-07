@@ -29,7 +29,9 @@ examples = [
     "pyqt6",
     "pyqt5",
     "pyside2",
-    "pip",
+
+    # Permits manipulation of Fermi/GBM data
+    "astro-gdt-fermi",
     
     # Required for model functions and data loading
     "sunkit_spex @ git+https://github.com/sunpy/sunkit-spex.git",

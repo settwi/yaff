@@ -1,7 +1,7 @@
 import astropy.units as u
 from sunkit_spex.extern import rhessi
 import numpy as np
-from yaff import fitting
+from yaff import fitting, common_models
 
 def adapt_rhessi_data(rl: rhessi.RhessiLoader) -> fitting.DataPacket:
     '''Convert the sunkit-spex format into a fitting.DataPacket'''
