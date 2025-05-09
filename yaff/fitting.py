@@ -553,7 +553,7 @@ def levenberg_minimize(
 
     Levenberg-Marquadt operates on **all** of the model and data
     count bins. So, it tends to be more robust (and converge faster) than
-    algorithms which are based on a single summary "fit statistic."
+    algorithms which are based on a single summary number.
 
     Applying this minimizer is a good first step before doing MCMC
     as it will (robustly) put the parameter vector near its global minimum.
