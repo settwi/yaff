@@ -48,7 +48,6 @@ def thick_target(args: dict[str, ArgsT]):
 
     params: dict[str, fitting.Parameter] = args['parameters']
     spectral_index = params['spectral_index']
-    electron_flux = params['electron_flux']
     cutoff_energy = params['cutoff_energy']
 
     # Single power law; very high energy break
@@ -63,9 +62,8 @@ def thick_target(args: dict[str, ArgsT]):
     )
 
     # For this model, assume earth observer distance
-    scaled_flux = electron_flux.as_quantity().to_value(
-        1e35 * u.electron / u.s
-    )
+    electron_flux = params['electron_flux']
+    scaled_flux = electron_flux.as_quantity().to_value(u.electron / u.s)
     return scaled_flux * nonthermal_portion
 
 
