@@ -564,7 +564,7 @@ def levenberg_minimize(
 
     def residual_function(vector: ArrayLike):
         fitter.emplace_free_parameters(vector)
-        if np.isneginf(fitter.eval_priors()):
+        if np.isneginf(p := fitter.eval_priors()) or np.isnan(p):
             # if we go out of bounds, don't evaluate the model
             return np.full(fitter.data.counts.shape, np.inf)
 
