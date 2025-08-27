@@ -16,6 +16,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import scipy.optimize as opt
 import scipy.stats as st
+from . import rebin_flux
 
 
 class DataPacket:
@@ -538,10 +539,51 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return list(p.unit for p in self.free_parameters)
 
 
+class BayesFitterWithGain(BayesFitter):
+    def __init__(
+        self,
+        data: DataPacket,
+        model_function: Callable[[dict], np.ndarray],
+        parameters: dict[str, Parameter],
+        log_priors: dict[str, Callable[[float], float]],
+        log_likelihood: Callable[[ArrayLike, ArrayLike], float],
+    ):
+        super().__init__(data, model_function, parameters, log_priors, log_likelihood)
+        # Add gain parameters which can be modified in fitting
+        self.parameters["gain_slope"] = Parameter(1.0 << u.one, True)
+        self.parameters["gain_offset"] = Parameter(0.0 << u.keV, True)
+        self.log_priors["gain_slope"] = simple_bounds(0.5, 1.5)
+        self.log_priors["gain_offset"] = simple_bounds(-1, 1)
+        warnings.warn("Gain slope and offset parameters/priors added to the parameter/prior ODicts.")
+
+    def eval_model(self, params=None):
+        r"""Evaluate the associated photon model and turn it into a counts model.
+        Acts with the gain parameters on the model count flux, interpolating
+        it onto the new energy bins via flux-conserving rebinning.
+
+        The gain parameters are defined like in xspec, but do not act
+        on the response matrix itself, rather on the count data.
+
+        There is no good way to fit the "gain" to the response. As the XSPEC manual states,
+            "**\*CAUTION\*** This command is to be used with extreme care for investigation of the response properties.
+            To properly fit data, the response matrix should be recalculated explicitly (outside of XSPEC)
+            using any modified gain information derived."
+
+        Interpolating the model flux is significantly simpler than interpolating the effective area.
+        So we do that here.
+        """
+        slope = self.parameters["gain_slope"].value
+        intercept = self.parameters["gain_offset"].as_quantity().to_value(u.keV)
+        new_edges = (self.data.count_energy_edges / slope) - intercept
+
+        original_counts = super().eval_model(params)
+        return rebin_flux.rebin_histogram_cdf(
+            self.data.count_energy_edges, original_counts, new_edges
+        )
+
+
 def levenberg_minimize(
-    fitter: BayesFitter,
-    restriction: np.ndarray[bool] = None,
-    **scipy_kwargs
+    fitter: BayesFitter, restriction: np.ndarray[bool] = None, **scipy_kwargs
 ) -> BayesFitter:
     """Given a Bayes fitter, minimize its parameters using the Levenberg-Marquadt
     (weighted) least squares minimization like XSPEC does.

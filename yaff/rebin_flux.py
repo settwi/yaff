@@ -10,6 +10,33 @@ The __name__ ... section has an example using a power law.
 """
 
 
+def rebin_histogram_cdf(
+    old_edges: ArrayLike, old_totals: ArrayLike, new_edges: ArrayLike
+) -> np.ndarray:
+    """
+    Interpolate histogram data onto a new set of bin edges, conserving total flux.
+
+    Credit: ChatGPT https://chatgpt.com/share/68ae803d-3880-800e-bd0f-1da4d158498f
+    """
+    old_edges = np.asarray(old_edges, dtype=float)
+    old_totals = np.asarray(old_totals, dtype=float)
+    new_edges = np.asarray(new_edges, dtype=float)
+
+    if old_edges.size != (old_totals.size + 1):
+        raise ValueError("len(old_edges) must be len(old_totals) + 1")
+
+    # Old cumulative distribution (flux vs. edge position)
+    old_cdf = np.concatenate([[0.0], np.cumsum(old_totals)])
+
+    # Interpolate cumulative flux at new edges
+    new_cdf = np.interp(new_edges, old_edges, old_cdf, left=0.0, right=old_cdf[-1])
+
+    # New bin totals = differences of CDF
+    new_totals = np.diff(new_cdf)
+
+    return new_totals
+
+
 def flux_conserving_rebin(
     old_edges: ArrayLike,
     old_values: ArrayLike,
