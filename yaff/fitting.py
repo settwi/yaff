@@ -126,10 +126,10 @@ class Parameter:
         self.unit = quant.unit
         self.frozen = frozen
 
-    def __repr__(self):
-        return f"Parameter({self.value:.2e}, {self.unit}, frozen={self.frozen})"
+    def __repr__(self) -> str:
+        return f"Parameter[{self.value:.2e}, {self.unit}, frozen={self.frozen}]"
 
-    def as_quantity(self):
+    def as_quantity(self) -> u.Quantity:
         return self.value << self.unit
 
 
@@ -280,7 +280,7 @@ class BayesFitter(FitsEmceeMixin):
         counts = count_rate * self.data.effective_exposure
         return counts
 
-    def emplace_best_mcmc(self):
+    def emplace_best_mcmc(self) -> None:
         """Take the current best (mean) MCMC
         parameter values and assign them to
         the free parameters.
@@ -297,7 +297,7 @@ class BayesFitter(FitsEmceeMixin):
         for k, v in zip(self.free_param_names, vals):
             self.parameters[k].value = v
 
-    def eval_priors(self):
+    def eval_priors(self) -> float:
         """Evaluate and sum all priors with the
         current parameters"""
         ret = 0
@@ -329,10 +329,12 @@ class BayesFitter(FitsEmceeMixin):
         return np.array(ret)
 
     @property
-    def free_parameters(self) -> dict[str, Parameter]:
-        return {
-            k: copy.deepcopy(v) for (k, v) in self.parameters.items() if not v.frozen
-        }
+    def free_parameters(self) -> list[Parameter]:
+        return list(
+            copy.deepcopy(v)
+            for v in self.parameters.values()
+            if not v.frozen
+        )
 
     @property
     def free_param_vector(self) -> list[float]:
@@ -487,7 +489,7 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return ret
 
     @property
-    def free_param_names(self):
+    def free_param_names(self) -> list[str]:
         """The free parameter names are ordered as follows (assumes N fitters):
         - Zero or more shared names first
         - Non-shared fitter 0 names
@@ -501,11 +503,11 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return ret
 
     @property
-    def num_free_params(self):
+    def num_free_params(self) -> int:
         return len(self.free_param_names)
 
     @property
-    def free_shared_param_names(self):
+    def free_shared_param_names(self) -> list[str]:
         return list(
             k for k in self.shared_params.keys() if not self.shared_params[k].frozen
         )
@@ -528,7 +530,7 @@ class CompositeBayesFitter(FitsEmceeMixin):
         ret = list(p for p in self.shared_params.values() if not p.frozen)
         for f in self.fitters:
             ret += list(
-                p
+                copy.deepcopy(p)
                 for (k, p) in f.parameters.items()
                 if not p.frozen and k not in self.shared_params
             )
@@ -554,7 +556,7 @@ class BayesFitterWithGain(BayesFitter):
         self.parameters["gain_offset"] = Parameter(0.0 << u.keV, True)
         self.log_priors["gain_slope"] = simple_bounds(0.5, 1.5)
         self.log_priors["gain_offset"] = simple_bounds(-1, 1)
-        warnings.warn("Gain slope and offset parameters/priors added to the parameter/prior ODicts.")
+        warnings.warn("\nGain slope and offset parameters/priors added to the parameter/prior ODicts.")
 
     def eval_model(self, params=None):
         r"""Evaluate the associated photon model and turn it into a counts model.
@@ -562,7 +564,7 @@ class BayesFitterWithGain(BayesFitter):
         it onto the new energy bins via flux-conserving rebinning.
 
         The gain parameters are defined like in xspec, but do not act
-        on the response matrix itself, rather on the count data.
+        on the response matrix itself, rather on the count model.
 
         There is no good way to fit the "gain" to the response. As the XSPEC manual states,
             "**\*CAUTION\*** This command is to be used with extreme care for investigation of the response properties.
