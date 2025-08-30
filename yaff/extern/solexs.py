@@ -1,6 +1,33 @@
 from astropy.io import fits
-import numpy as np
+import astropy.time as atime
 import astropy.units as u
+import numpy as np
+
+
+@u.quantity_input()
+def time_from_header(head: fits.header.Header) -> u.s:
+    '''Compute the observation time from a FITS header'''
+    start, stop = head['TSTART'], head['TSTOP']
+    return (atime.Time(stop) - atime.Time(start)).to(u.s)
+
+
+def read_counts(data_fn: str, sys_uncert=0.04) -> dict[str, u.Quantity]:
+    '''Read in the SoLEXS counts data and apply a systematic
+    uncertianty, if desired.
+    
+    Defaults to 4%, as recommended by the SoLEXS user manual.
+    '''
+    with fits.open(data_fn) as dat:
+        cts = np.array(dat[1].data['COUNTS'], dtype=int) << u.ct
+
+        # Assume Poisson error, then add on systematics
+        sys_uncert = 0.04
+        err = np.sqrt(cts.to_value(u.ct))
+        err = np.sqrt(err**2 + (sys_uncert * cts.to_value(u.ct))**2) << u.ct
+        exposure = time_from_header(dat[1].header)
+
+    return {'counts': cts, 'counts_error': err, 'exposure': exposure}
+
 
 def read_rmf(rmf_fn: str) -> dict[str, u.Quantity]:
     '''
