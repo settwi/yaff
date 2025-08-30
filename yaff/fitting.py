@@ -305,7 +305,7 @@ class BayesFitter(FitsEmceeMixin):
             ret += prior(self.parameters[k].value)
         return ret
 
-    def generate_model_samples(self, num: int) -> np.ndarray:
+    def generate_model_samples(self, num: int, burnin: int=0) -> np.ndarray:
         """Generate model samples from the parameter chains in
         the associated `emcee.EnsembleSampler`.
         If no sampler is present, current parameters
@@ -319,7 +319,7 @@ class BayesFitter(FitsEmceeMixin):
             return [self.eval_model()]
 
         param_samples = np.random.default_rng().choice(
-            self.emcee_sampler.flatchain, size=num
+            self.emcee_sampler.flatchain[burnin:], size=num
         )
 
         ret = list()
