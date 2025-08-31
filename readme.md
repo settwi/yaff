@@ -37,10 +37,6 @@ uv pip install -e .[examples]
 
 ## Examples
 All of these can be found in `examples` directory. (TODO: make them a gallery)
-- `line_fit`: Fit some synthetic counts data to a line.
-- `rhessi_fit`: Fit a (thermal + cold thick target) model to a RHESSI spectrum near the peak of an M9 GOES class flare.
-- `stix_fit`: Fit a (thermal + cold thick target) model to a STIX spectrum during part of the impulsive phase of an M1 GOES class flare.
-- `simulataneous_nustar_fit`: Fit a thermal bremsstrahlung model to both NuSTAR focal plane modules (FPMA and FPMB) simultaneously to a quiet sun brightening.
 
 ## X-ray spectroscopy basics
 ### Spectroscopy: background
