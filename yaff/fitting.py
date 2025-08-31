@@ -38,20 +38,20 @@ class DataPacket:
         Performs some basic checks to assert that things
         are the correct shape before allowing the caller
         to proceed."""
-        self.counts: np.ndarray = counts.to_value(u.ct)
-        self.counts_error: np.ndarray = counts_error.to_value(u.ct)
+        self.counts: np.ndarray[float | int] = counts.to_value(u.ct)
+        self.counts_error: np.ndarray[float] = counts_error.to_value(u.ct)
 
-        self.background_counts: np.ndarray = background_counts.to_value(u.ct)
-        self.background_counts_error: np.ndarray = background_counts_error.to_value(
+        self.background_counts: np.ndarray[float | int] = background_counts.to_value(u.ct)
+        self.background_counts_error: np.ndarray[float] = background_counts_error.to_value(
             u.ct
         )
 
-        self.effective_exposure: np.ndarray = np.array(effective_exposure.to_value(u.s))
+        self.effective_exposure: np.ndarray[float] = np.array(effective_exposure.to_value(u.s))
 
-        self.count_energy_edges: np.ndarray = count_energy_edges.to_value(u.keV)
-        self.photon_energy_edges: np.ndarray = photon_energy_edges.to_value(u.keV)
+        self.count_energy_edges: np.ndarray[float] = count_energy_edges.to_value(u.keV)
+        self.photon_energy_edges: np.ndarray[float] = photon_energy_edges.to_value(u.keV)
 
-        self.response_matrix = response_matrix.to_value(u.cm**2 * u.ct / u.ph)
+        self.response_matrix: np.ndarray[float] = response_matrix.to_value(u.cm**2 * u.ct / u.ph)
         self._verify_dimensions()
 
     def _verify_dimensions(self):
@@ -206,7 +206,7 @@ class BayesFitter(FitsEmceeMixin):
         model_function: Callable[[dict], np.ndarray],
         parameters: dict[str, Parameter],
         log_priors: dict[str, Callable[[float], float]],
-        log_likelihood: Callable[[ArrayLike, ArrayLike], float],
+        log_likelihood: Callable[[DataPacket, ArrayLike], float],
     ):
         """Assemble all the pieces we need to
         start doing spectroscopy via Bayesian inference.
@@ -548,7 +548,7 @@ class BayesFitterWithGain(BayesFitter):
         model_function: Callable[[dict], np.ndarray],
         parameters: dict[str, Parameter],
         log_priors: dict[str, Callable[[float], float]],
-        log_likelihood: Callable[[ArrayLike, ArrayLike], float],
+        log_likelihood: Callable[[DataPacket, ArrayLike], float],
     ):
         super().__init__(data, model_function, parameters, log_priors, log_likelihood)
         # Add gain parameters which can be modified in fitting
