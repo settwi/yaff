@@ -16,6 +16,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 import scipy.optimize as opt
 import scipy.stats as st
+from . import rebin_flux
 
 
 class DataPacket:
@@ -37,20 +38,20 @@ class DataPacket:
         Performs some basic checks to assert that things
         are the correct shape before allowing the caller
         to proceed."""
-        self.counts: np.ndarray = counts.to_value(u.ct)
-        self.counts_error: np.ndarray = counts_error.to_value(u.ct)
+        self.counts: np.ndarray[float | int] = counts.to_value(u.ct)
+        self.counts_error: np.ndarray[float] = counts_error.to_value(u.ct)
 
-        self.background_counts: np.ndarray = background_counts.to_value(u.ct)
-        self.background_counts_error: np.ndarray = background_counts_error.to_value(
+        self.background_counts: np.ndarray[float | int] = background_counts.to_value(u.ct)
+        self.background_counts_error: np.ndarray[float] = background_counts_error.to_value(
             u.ct
         )
 
-        self.effective_exposure: np.ndarray = np.array(effective_exposure.to_value(u.s))
+        self.effective_exposure: np.ndarray[float] = np.array(effective_exposure.to_value(u.s))
 
-        self.count_energy_edges: np.ndarray = count_energy_edges.to_value(u.keV)
-        self.photon_energy_edges: np.ndarray = photon_energy_edges.to_value(u.keV)
+        self.count_energy_edges: np.ndarray[float] = count_energy_edges.to_value(u.keV)
+        self.photon_energy_edges: np.ndarray[float] = photon_energy_edges.to_value(u.keV)
 
-        self.response_matrix = response_matrix.to_value(u.cm**2 * u.ct / u.ph)
+        self.response_matrix: np.ndarray[float] = response_matrix.to_value(u.cm**2 * u.ct / u.ph)
         self._verify_dimensions()
 
     def _verify_dimensions(self):
@@ -125,10 +126,10 @@ class Parameter:
         self.unit = quant.unit
         self.frozen = frozen
 
-    def __repr__(self):
-        return f"Parameter({self.value:.2e}, {self.unit}, frozen={self.frozen})"
+    def __repr__(self) -> str:
+        return f"Parameter[{self.value:.2e}, {self.unit}, frozen={self.frozen}]"
 
-    def as_quantity(self):
+    def as_quantity(self) -> u.Quantity:
         return self.value << self.unit
 
 
@@ -205,7 +206,7 @@ class BayesFitter(FitsEmceeMixin):
         model_function: Callable[[dict], np.ndarray],
         parameters: dict[str, Parameter],
         log_priors: dict[str, Callable[[float], float]],
-        log_likelihood: Callable[[ArrayLike, ArrayLike], float],
+        log_likelihood: Callable[[DataPacket, ArrayLike], float],
     ):
         """Assemble all the pieces we need to
         start doing spectroscopy via Bayesian inference.
@@ -279,7 +280,7 @@ class BayesFitter(FitsEmceeMixin):
         counts = count_rate * self.data.effective_exposure
         return counts
 
-    def emplace_best_mcmc(self):
+    def emplace_best_mcmc(self) -> None:
         """Take the current best (mean) MCMC
         parameter values and assign them to
         the free parameters.
@@ -296,7 +297,7 @@ class BayesFitter(FitsEmceeMixin):
         for k, v in zip(self.free_param_names, vals):
             self.parameters[k].value = v
 
-    def eval_priors(self):
+    def eval_priors(self) -> float:
         """Evaluate and sum all priors with the
         current parameters"""
         ret = 0
@@ -304,7 +305,7 @@ class BayesFitter(FitsEmceeMixin):
             ret += prior(self.parameters[k].value)
         return ret
 
-    def generate_model_samples(self, num: int) -> np.ndarray:
+    def generate_model_samples(self, num: int, burnin: int=0) -> np.ndarray:
         """Generate model samples from the parameter chains in
         the associated `emcee.EnsembleSampler`.
         If no sampler is present, current parameters
@@ -318,7 +319,7 @@ class BayesFitter(FitsEmceeMixin):
             return [self.eval_model()]
 
         param_samples = np.random.default_rng().choice(
-            self.emcee_sampler.flatchain, size=num
+            self.emcee_sampler.flatchain[burnin:], size=num
         )
 
         ret = list()
@@ -328,10 +329,12 @@ class BayesFitter(FitsEmceeMixin):
         return np.array(ret)
 
     @property
-    def free_parameters(self) -> dict[str, Parameter]:
-        return {
-            k: copy.deepcopy(v) for (k, v) in self.parameters.items() if not v.frozen
-        }
+    def free_parameters(self) -> list[Parameter]:
+        return list(
+            copy.deepcopy(v)
+            for v in self.parameters.values()
+            if not v.frozen
+        )
 
     @property
     def free_param_vector(self) -> list[float]:
@@ -486,7 +489,7 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return ret
 
     @property
-    def free_param_names(self):
+    def free_param_names(self) -> list[str]:
         """The free parameter names are ordered as follows (assumes N fitters):
         - Zero or more shared names first
         - Non-shared fitter 0 names
@@ -500,11 +503,11 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return ret
 
     @property
-    def num_free_params(self):
+    def num_free_params(self) -> int:
         return len(self.free_param_names)
 
     @property
-    def free_shared_param_names(self):
+    def free_shared_param_names(self) -> list[str]:
         return list(
             k for k in self.shared_params.keys() if not self.shared_params[k].frozen
         )
@@ -527,7 +530,7 @@ class CompositeBayesFitter(FitsEmceeMixin):
         ret = list(p for p in self.shared_params.values() if not p.frozen)
         for f in self.fitters:
             ret += list(
-                p
+                copy.deepcopy(p)
                 for (k, p) in f.parameters.items()
                 if not p.frozen and k not in self.shared_params
             )
@@ -538,10 +541,51 @@ class CompositeBayesFitter(FitsEmceeMixin):
         return list(p.unit for p in self.free_parameters)
 
 
+class BayesFitterWithGain(BayesFitter):
+    def __init__(
+        self,
+        data: DataPacket,
+        model_function: Callable[[dict], np.ndarray],
+        parameters: dict[str, Parameter],
+        log_priors: dict[str, Callable[[float], float]],
+        log_likelihood: Callable[[DataPacket, ArrayLike], float],
+    ):
+        super().__init__(data, model_function, parameters, log_priors, log_likelihood)
+        # Add gain parameters which can be modified in fitting
+        self.parameters["gain_slope"] = Parameter(1.0 << u.one, True)
+        self.parameters["gain_offset"] = Parameter(0.0 << u.keV, True)
+        self.log_priors["gain_slope"] = simple_bounds(0.5, 1.5)
+        self.log_priors["gain_offset"] = simple_bounds(-1, 1)
+        warnings.warn("\nGain slope and offset parameters/priors added to the parameter/prior ODicts.")
+
+    def eval_model(self, params=None):
+        r"""Evaluate the associated photon model and turn it into a counts model.
+        Acts with the gain parameters on the model count flux, interpolating
+        it onto the new energy bins via flux-conserving rebinning.
+
+        The gain parameters are defined like in xspec, but do not act
+        on the response matrix itself, rather on the count model.
+
+        There is no good way to fit the "gain" to the response. As the XSPEC manual states,
+            "**\*CAUTION\*** This command is to be used with extreme care for investigation of the response properties.
+            To properly fit data, the response matrix should be recalculated explicitly (outside of XSPEC)
+            using any modified gain information derived."
+
+        Interpolating the model flux is significantly simpler than interpolating the effective area.
+        So we do that here.
+        """
+        slope = self.parameters["gain_slope"].value
+        intercept = self.parameters["gain_offset"].as_quantity().to_value(u.keV)
+        new_edges = (self.data.count_energy_edges / slope) - intercept
+
+        original_counts = super().eval_model(params)
+        return rebin_flux.rebin_histogram_cdf(
+            self.data.count_energy_edges, original_counts, new_edges
+        )
+
+
 def levenberg_minimize(
-    fitter: BayesFitter,
-    restriction: np.ndarray[bool] = None,
-    **scipy_kwargs
+    fitter: BayesFitter, restriction: np.ndarray[bool] = None, **scipy_kwargs
 ) -> BayesFitter:
     """Given a Bayes fitter, minimize its parameters using the Levenberg-Marquadt
     (weighted) least squares minimization like XSPEC does.

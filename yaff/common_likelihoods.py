@@ -10,7 +10,7 @@ from yaff import fitting
 
 def poisson_factory(
     restriction: np.ndarray[bool],
-) -> Callable[[ArrayLike, ArrayLike], float]:
+) -> Callable[[fitting.DataPacket, ArrayLike], float]:
     """
     Construct a Poisson log likelihood function which restricts evaluation
     using the given `restrict` variable.
@@ -51,7 +51,7 @@ def poisson_factory(
 
 def chi_squared_factory(
     restriction: np.ndarray[bool],
-) -> Callable[[ArrayLike, ArrayLike], float]:
+) -> Callable[[fitting.DataPacket, ArrayLike], float]:
     """Construct a chi2 likelihood that is weighted by
     errors on the background counts and counts.
 
@@ -73,3 +73,38 @@ def chi_squared_factory(
         ).sum()
 
     return chi2_likelihood
+
+
+def negative_binomial_factory(
+    restriction: np.ndarray[bool],
+) -> Callable[[fitting.DataPacket, ArrayLike], float]:
+    """
+    Here we implement a
+    [negative binomial](https://en.wikipedia.org/wiki/Negative_binomial_distribution#Poisson_distribution)
+    distribution log likelihood function.
+
+    It acts as an overdispersed Poisson distribution.
+    We parameterize it as suggested by the [scipy docs](https://en.wikipedia.org/wiki/Negative_binomial_distribution#Overdispersed_Poisson)
+    for an overdispersed Poisson.
+
+    This is useful for data which is integer counts where the
+    uncertainty is slightly larger than that of Poisson.
+    """
+    def log_likelihood(data: fitting.DataPacket, model: np.ndarray):
+        # For NegBin likelihood, the model must comprise
+        # of integers, otherwise the `logpmf` is sad
+        sigma_squared = data.counts_error**2 + data.background_counts_error**2
+        mu = data.counts.astype(int)
+        p = mu / sigma_squared
+        n = mu**2 / (sigma_squared - mu)
+        rv = st.nbinom(n, p)
+
+        # Negative binomial expects integer argument
+        discrete_model = model.astype(int)
+        discrete_bg = data.background_counts.astype(int)
+        # Zero count bins add no information;
+        # see note in the Poisson factory, above
+        restrict = (data.counts > 0) & restriction
+        return rv.logpmf(discrete_model + discrete_bg)[restrict].sum()
+
+    return log_likelihood
