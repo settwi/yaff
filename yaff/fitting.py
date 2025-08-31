@@ -41,17 +41,25 @@ class DataPacket:
         self.counts: np.ndarray[float | int] = counts.to_value(u.ct)
         self.counts_error: np.ndarray[float] = counts_error.to_value(u.ct)
 
-        self.background_counts: np.ndarray[float | int] = background_counts.to_value(u.ct)
-        self.background_counts_error: np.ndarray[float] = background_counts_error.to_value(
+        self.background_counts: np.ndarray[float | int] = background_counts.to_value(
             u.ct
         )
+        self.background_counts_error: np.ndarray[float] = (
+            background_counts_error.to_value(u.ct)
+        )
 
-        self.effective_exposure: np.ndarray[float] = np.array(effective_exposure.to_value(u.s))
+        self.effective_exposure: np.ndarray[float] = np.array(
+            effective_exposure.to_value(u.s)
+        )
 
         self.count_energy_edges: np.ndarray[float] = count_energy_edges.to_value(u.keV)
-        self.photon_energy_edges: np.ndarray[float] = photon_energy_edges.to_value(u.keV)
+        self.photon_energy_edges: np.ndarray[float] = photon_energy_edges.to_value(
+            u.keV
+        )
 
-        self.response_matrix: np.ndarray[float] = response_matrix.to_value(u.cm**2 * u.ct / u.ph)
+        self.response_matrix: np.ndarray[float] = response_matrix.to_value(
+            u.cm**2 * u.ct / u.ph
+        )
         self._verify_dimensions()
 
     def _verify_dimensions(self):
@@ -305,7 +313,7 @@ class BayesFitter(FitsEmceeMixin):
             ret += prior(self.parameters[k].value)
         return ret
 
-    def generate_model_samples(self, num: int, burnin: int=0) -> np.ndarray:
+    def generate_model_samples(self, num: int, burnin: int = 0) -> np.ndarray:
         """Generate model samples from the parameter chains in
         the associated `emcee.EnsembleSampler`.
         If no sampler is present, current parameters
@@ -330,11 +338,7 @@ class BayesFitter(FitsEmceeMixin):
 
     @property
     def free_parameters(self) -> list[Parameter]:
-        return list(
-            copy.deepcopy(v)
-            for v in self.parameters.values()
-            if not v.frozen
-        )
+        return list(copy.deepcopy(v) for v in self.parameters.values() if not v.frozen)
 
     @property
     def free_param_vector(self) -> list[float]:
@@ -556,7 +560,9 @@ class BayesFitterWithGain(BayesFitter):
         self.parameters["gain_offset"] = Parameter(0.0 << u.keV, True)
         self.log_priors["gain_slope"] = simple_bounds(0.5, 1.5)
         self.log_priors["gain_offset"] = simple_bounds(-1, 1)
-        warnings.warn("\nGain slope and offset parameters/priors added to the parameter/prior ODicts.")
+        warnings.warn(
+            "\nGain slope and offset parameters/priors added to the parameter/prior ODicts."
+        )
 
     def eval_model(self, params=None):
         r"""Evaluate the associated photon model and turn it into a counts model.

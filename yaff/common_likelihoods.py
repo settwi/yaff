@@ -66,10 +66,7 @@ def chi_squared_factory(
         # Some count bins might be negative, or have zero error,
         # so use nan_to_num
         return -np.nan_to_num(
-            (numerator / total_sq_err)[restriction],
-            nan=0,
-            neginf=0,
-            posinf=0
+            (numerator / total_sq_err)[restriction], nan=0, neginf=0, posinf=0
         ).sum()
 
     return chi2_likelihood
@@ -90,6 +87,7 @@ def negative_binomial_factory(
     This is useful for data which is integer counts where the
     uncertainty is slightly larger than that of Poisson.
     """
+
     def log_likelihood(data: fitting.DataPacket, model: np.ndarray):
         # For NegBin likelihood, the model must comprise
         # of integers, otherwise the `logpmf` is sad
