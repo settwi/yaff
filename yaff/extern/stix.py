@@ -38,7 +38,7 @@ def load_pixel_data(fn: str) -> dict:
         time_bins = start_date + data_tab["time"]
         dt = data_tab["timedel"]
         time_bins = time_bins - dt / 2
-        time_bins = atime.Time(np.concatenate((time_bins, [time_bins[-1] + dt[-1]])))
+        time_bins = atime.Time(list(time_bins) + [time_bins[-1] + dt[-1]])
 
         # index ordering: (time, detector, pixel, energy bin)
         counts = data_tab["counts"]
